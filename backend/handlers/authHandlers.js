@@ -5,7 +5,7 @@ import {
   readUsers, writeUsers, getUserByEmail, createUser,
   hashPassword, passwordMatches, normalizeAuthDelay
 } from "../utils/helpers.js";
-import { getClientIdentifier } from "../services/auth.service.js";
+import { getClientIdentifier, isLoginRateLimited, LOGIN_WINDOW_MS } from "../services/auth.service.js";
 import { applyRateLimit, signupLimiter, loginLimiter } from "../utils/rateLimiter.js";
 import { initializeFirebase, COLLECTIONS } from "../../firebase.js";
 
@@ -64,8 +64,9 @@ export async function handleSignup(req, res) {
 
   if (existing) {
     await normalizeAuthDelay();
-    void 0;
-    return sendJson(res, 200, { ok: true });
+    return sendJson(res, 200, { 
+      message: "If this email is registered, you will receive a verification email."
+    });
   }
 
   const user = {
