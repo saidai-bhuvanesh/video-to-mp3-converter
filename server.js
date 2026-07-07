@@ -22,6 +22,7 @@ import "./backend/jobs/worker.js"; // Initialize worker
 import { parse as csvParse } from "csv-parse/sync";
 import { v4 as uuidv4 } from "uuid";
 import { generateSdlcAdvice } from "./sdlcAdvisor.js";
+import { fileTypeFromBuffer } from "file-type";
 
 const JUDGE0_LANGUAGE_IDS = {
   python:      71,
@@ -86,18 +87,19 @@ const uploadCsv = multer({
   limits: { fileSize: 2 * 1024 * 1024 } // 2MB limit
 }).single("csv");
 
-function validateMagicBytes(buffer, mimeType) {
-  if (!buffer || buffer.length < 4) return false;
-  const hex = buffer.slice(0, 4).toString("hex").toUpperCase();
+async function validateMagicBytes(buffer, mimeType) {
+  if (!buffer) return false;
+  const fileType = await fileTypeFromBuffer(buffer);
+  if (!fileType) return false;
   
   if (mimeType === "application/pdf") {
-    return hex === "25504446";
+    return fileType.mime === "application/pdf";
   }
   if (mimeType === "application/vnd.openxmlformats-officedocument.wordprocessingml.document") {
-    return hex === "504B0304";
+    return fileType.ext === "docx" || fileType.ext === "zip";
   }
   if (mimeType === "application/msword") {
-    return hex === "D0CF11E0";
+    return fileType.ext === "cfb" || fileType.mime === "application/x-cfb" || fileType.ext === "doc";
   }
   return false;
 }
@@ -868,7 +870,7 @@ async function handleApi(req, res, pathname) {
         return sendJson(res, 400, { error: "Unsupported file type. Upload PDF or DOCX." });
       }
 
-      if (!validateMagicBytes(req.file.buffer, req.file.mimetype)) {
+      if (!(await validateMagicBytes(req.file.buffer, req.file.mimetype))) {
         return sendJson(res, 400, { error: "File content mismatch. The uploaded file's content does not match its type." });
       }
 
