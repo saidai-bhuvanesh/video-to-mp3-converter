@@ -22,6 +22,7 @@ import "./backend/jobs/worker.js"; // Initialize worker
 import { parse as csvParse } from "csv-parse/sync";
 import { v4 as uuidv4 } from "uuid";
 import { generateSdlcAdvice } from "./sdlcAdvisor.js";
+import lockfile from "proper-lockfile";
 
 const JUDGE0_LANGUAGE_IDS = {
   python:      71,
@@ -481,21 +482,39 @@ function appendToJsonArrayFile(filePath, entry, maxEntries = 1000) {
   const previous = jsonArrayWriteQueues.get(filePath) || Promise.resolve();
   const task = previous.then(async () => {
     await fs.mkdir(DATA_DIR, { recursive: true });
-    let list = [];
+    
     try {
-      const raw = await fs.readFile(filePath, "utf8");
-      list = JSON.parse(raw || "[]");
-      if (!Array.isArray(list)) list = [];
-    } catch (err) {
-      if (err.code !== "ENOENT") throw err;
+      await fs.access(filePath);
+    } catch {
+      await fs.writeFile(filePath, "[]\n");
     }
-    list.push(entry);
-    if (list.length > maxEntries) {
-      list = list.slice(list.length - maxEntries);
+    
+    let release;
+    try {
+      release = await lockfile.lock(filePath, { retries: { retries: 5, minTimeout: 50, maxTimeout: 200 } });
+    } catch (lockErr) {
+      console.warn(`Failed to acquire lock on ${filePath}:`, lockErr.message);
     }
-    const tmpPath = `${filePath}.${process.pid}.${Date.now()}.tmp`;
-    await fs.writeFile(tmpPath, `${JSON.stringify(list, null, 2)}\n`);
-    await fs.rename(tmpPath, filePath);
+
+    try {
+      let list = [];
+      try {
+        const raw = await fs.readFile(filePath, "utf8");
+        list = JSON.parse(raw || "[]");
+        if (!Array.isArray(list)) list = [];
+      } catch (err) {
+        if (err.code !== "ENOENT") throw err;
+      }
+      list.push(entry);
+      if (list.length > maxEntries) {
+        list = list.slice(list.length - maxEntries);
+      }
+      const tmpPath = `${filePath}.${process.pid}.${Date.now()}.tmp`;
+      await fs.writeFile(tmpPath, `${JSON.stringify(list, null, 2)}\n`);
+      await fs.rename(tmpPath, filePath);
+    } finally {
+      if (release) await release();
+    }
     return entry;
   });
   // Keep the chain alive even if one write rejects, so later writes still run.
