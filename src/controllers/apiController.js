@@ -17,7 +17,7 @@ import {
   CLIENT_ERRORS_FILE,
   DATA_DIR,
   MAX_CLIENT_ERROR_ENTRIES
-} from "../../server.js";
+} from "../server.js";
 
 import { instrumentJS } from "../../modules/code-tracer.js";
 

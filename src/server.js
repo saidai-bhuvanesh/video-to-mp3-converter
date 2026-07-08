@@ -2,22 +2,22 @@ import crypto from "crypto";
 import fs from "fs/promises";
 import http from "http";
 import express from "express";
-import apiRouter from "./backend/routes/api.js";
+import apiRouter from "./routes/api.js";
 import { execFile } from "child_process";
 import path from "path";
 import { fileURLToPath } from "url";
 import { FieldValue } from "firebase-admin/firestore";
-import { initializeFirebase, getDb, COLLECTIONS } from "./firebase.js";
-import { verifyCsrfToken } from "./utils/csrf-verify.js";
+import { initializeFirebase, getDb, COLLECTIONS } from "../firebase.js";
+import { verifyCsrfToken } from "../utils/csrf-verify.js";
 import multer from "multer";
-import { extractResumeText } from "./backend/resume-analyzer/parser.js";
-import { calculateATS } from "./backend/resume-analyzer/atsScore.js";
-import { findMissingSkills } from "./backend/resume-analyzer/skills.js";
-import { getSuggestions } from "./backend/resume-analyzer/suggestions.js";
-import { analyzeWorkflow } from "./backend/repository-analyzer/cicdValidator.js";
-import { VCSFactory } from "./backend/vcs/VCSFactory.js";
-import { enqueueBulkAudit, getBatchProgress, MAX_BULK_AUDIT_URLS } from "./backend/jobs/queue.js";
-import "./backend/jobs/worker.js"; // Initialize worker
+import { extractResumeText } from "./resume-analyzer/parser.js";
+import { calculateATS } from "./resume-analyzer/atsScore.js";
+import { findMissingSkills } from "./resume-analyzer/skills.js";
+import { getSuggestions } from "./resume-analyzer/suggestions.js";
+import { analyzeWorkflow } from "./repository-analyzer/cicdValidator.js";
+import { VCSFactory } from "./vcs/VCSFactory.js";
+import { enqueueBulkAudit, getBatchProgress, MAX_BULK_AUDIT_URLS } from "./jobs/queue.js";
+import "./jobs/worker.js"; // Initialize worker
 
 import { parse as csvParse } from "csv-parse/sync";
 import { v4 as uuidv4 } from "uuid";
@@ -41,8 +41,8 @@ const JUDGE0_LANGUAGE_IDS = {
   haskell:     89,
   kotlin:      78,
 };
-import { handleReportRequest } from "./backend/reports/reportGenerator.js";
-import { getUserBenchmark } from "./backend/benchmarking/percentileService.js";
+import { handleReportRequest } from "./reports/reportGenerator.js";
+import { getUserBenchmark } from "./benchmarking/percentileService.js";
 import { Server as SocketIOServer } from "socket.io";
 import {
   ACCESS_TOKEN_MAX_AGE_SECONDS, REFRESH_TOKEN_MAX_AGE_SECONDS, getClientIdentifier, isSignupRateLimited,
@@ -50,7 +50,7 @@ import {
   verifyAccessToken, hashPassword, passwordMatches, validateSignup,
   createRefreshToken, verifyRefreshToken, revokeTokenFamily,
   activeRefreshFamilies
-} from "./backend/services/auth.service.js";
+} from "./services/auth.service.js";
 import {
   applyRateLimit,
   loginLimiter,
@@ -65,9 +65,9 @@ import {
   predictionLimiter,
   bulkAuditLimiter,
   logErrorLimiter
-} from "./backend/utils/rateLimiter.js";
-import { applySM2 } from "./backend/services/memory.service.js";
-import { sendVerificationEmail } from "./backend/services/email.service.js";
+} from "./utils/rateLimiter.js";
+import { applySM2 } from "./services/memory.service.js";
+import { sendVerificationEmail } from "./services/email.service.js";
 import {
   createBattle,
   joinBattle,
@@ -75,9 +75,9 @@ import {
   submitSolution,
   getBattle,
   getHistory,
-} from "./pages/Dsa-Battle/Battleservice.js";
+} from "../pages/Dsa-Battle/Battleservice.js";
 
-import { instrumentJS } from "./modules/code-tracer.js";
+import { instrumentJS } from "../modules/code-tracer.js";
 
 const upload = multer({
   storage: multer.memoryStorage(),
@@ -111,7 +111,7 @@ let userCacheTimestamp = 0;
 let userCacheDirty = true;
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
-const ROOT = __dirname;
+const ROOT = path.resolve(__dirname, "..");
 const IS_VERCEL = process.env.VERCEL === "1";
 const DATA_DIR = IS_VERCEL
   ? path.join("/tmp", "algo-infinity-verse")
